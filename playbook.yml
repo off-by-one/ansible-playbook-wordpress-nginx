@@ -1,8 +1,14 @@
-- hosts: webservers
-
+---
+- name: "Goal | set up example.com"
+  hosts: example.com
+  vars:
+    wp_db_name: wordpress
+    wp_db_user: wordpress
+    wp_db_password: "CHANGEME"
+    certbot_email: "CHANGEME"
+  user: root
   roles:
+    - certbot
     - nginx
-    - wordpress
     - mysql
-    - php
-    - postfix
+    - wordpress

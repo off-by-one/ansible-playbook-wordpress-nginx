@@ -1,56 +1,73 @@
 ---
-- name: Create webroot
-  file:
-    state: directory
-    path: /srv/www/
-    owner: root
-    group: root
-    mode: 0755
-  become: yes
+- name: "Install | php"
+  apt:
+    pkg:
+      - php8.2
+      - php8.2-mysql
+      - php8.2-gd
+      - php8.2-ssh2
+      - php8.2-mcrypt
+      - php8.2-curl
+      - php8.2-intl
+      - php8.2-mbstring
+      - php8.2-soap
+      - php8.2-xml
+      - php8.2-xmlrpc
+      - php8.2-zip
+      - php8.2-fpm
 
-- name: Check if WordPress directory exists in /srv/www
-  stat: path=/srv/www/{{server_hostname}}
+- name: "System | (re)start php service"
+  ansible.builtin.systemd:
+    name: php8.2-fpm
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+
+- name: "Register | Check if WordPress directory exists in /srv/www"
+  stat: path="/srv/www/{{ inventory_hostname }}"
   register: check_path
 
-- name: Download WordPress
-  get_url: 
-    url: https://wordpress.org/wordpress-{{ wp_version }}.tar.gz 
-    dest: /tmp/wordpress-{{ wp_version }}.tar.gz 
-    checksum: "sha1:{{ wp_sha1sum }}" 
+- name: "Register | Create temporary directory"
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: wp
+  register: tmp_wp
+
+- name: "Install | Download and unpack latest WordPress"
+  unarchive:
+    src: https://wordpress.org/latest.tar.gz
+    dest: "{{ tmp_wp.path }}"
+    remote_src: yes
+    creates: "{{ tmp_wp.path }}/wordpress/"
+  when: not check_path.stat.exists
+
+- name: "Install | Move WordPress install files"
+  command: "mv {{ tmp_wp.path }}/wordpress /srv/www/{{ inventory_hostname }}"
   become: yes
   when: not check_path.stat.exists
 
-- name: Extract WordPress
-  unarchive:
-    src: /tmp/wordpress-{{ wp_version }}.tar.gz
-    dest: /tmp
+- name: "Configure | Set ownership"
+  file:
+    path: "/srv/www/{{ inventory_hostname }}"
+    state: directory
+    recurse: yes
     owner: www-data
     group: www-data
-    copy: no
-  become: yes
   when: not check_path.stat.exists
 
-- name: Move WordPress install files
-  command: mv /tmp/wordpress /srv/www/{{server_hostname}}
-  become: yes
+- name: "Configure | Set permissions for directories"
+  shell: "/usr/bin/find /srv/www/{{ inventory_hostname }}/ -type d -exec chmod 750 {} \\;"
   when: not check_path.stat.exists
 
-- name: Fetch random salts for WordPress config
-  local_action: command curl https://api.wordpress.org/secret-key/1.1/salt/
-  register: "wp_salt"
-  become: no
+- name: "Configure | Set permissions for files"
+  shell: "/usr/bin/find /srv/www/{{ inventory_hostname }}/ -type f -exec chmod 640 {} \\;"
+  when: not check_path.stat.exists
 
-- name: Add wp-config
-  template: "src=wp-config.php dest=/srv/www/{{server_hostname}}/wp-config.php"
-  become: yes
-
-- name: Update WordPress config file
-  lineinfile:
-    dest: "/srv/www/{{server_hostname}}/wp-config.php"
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-  with_items:
-    - {'regexp': "define\\('DB_NAME', '(.)+'\\);", 'line': "define('DB_NAME', '{{wp_db_name}}');"}
-    - {'regexp': "define\\('DB_USER', '(.)+'\\);", 'line': "define('DB_USER', '{{wp_db_user}}');"}
-    - {'regexp': "define\\('DB_PASSWORD', '(.)+'\\);", 'line': "define('DB_PASSWORD', '{{wp_db_password}}');"}
-  become: yes
+- name: "Install | wp-config.php"
+  template:
+    src: "wp-config.php.j2"
+    dest: "/srv/www/{{ inventory_hostname }}/wp-config.php"
+    owner: www-data
+    group: www-data
+    mode: 0640
+  when: not check_path.stat.exists

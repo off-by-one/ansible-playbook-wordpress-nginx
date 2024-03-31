@@ -1,29 +1,23 @@
 ---
-# tasks file for nginx
+- name: "Install | nginx"
+  apt:
+    pkg: nginx-full
 
-- name: Update apt cache
-  apt: update_cache=yes cache_valid_time=3600
-  become: yes
+- name: "Configure | Create /srv/www"
+  ansible.builtin.file:
+    path: /srv/www
+    state: directory
+    mode: '0755'
 
-- name: Install nginx
-  apt: name={{ item }} state=present
-  become: yes
-  with_items:
-    - nginx
-    - git
+- name: "Configure | install nginx config"
+  template:
+    src: nginx.conf.j2
+    dest: "/etc/nginx/conf.d/{{ inventory_hostname }}.conf"
+    mode: 0644
 
-- name: Start nginx
-  become: yes
-  service:
+- name: "System | (re)start nginx service"
+  ansible.builtin.systemd:
     name: nginx
-    state: started
-
-- name: Update nginx confs for WordPress + PHP
-  template: "src=../templates/default-site.conf dest=/etc/nginx/sites-available/{{server_hostname}} owner=www-data group=www-data mode=0644"
-  become: yes
-
-- name: Enable site
-  file: src=/etc/nginx/sites-available/{{server_hostname}} dest=/etc/nginx/sites-enabled/{{server_hostname}} owner=www-data group=www-data state=link
-  notify:
-    - restart nginx
-  become: yes
+    state: restarted
+    enabled: yes
+    daemon_reload: yes

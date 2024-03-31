@@ -1,0 +1,77 @@
+server {
+  listen 80;
+	listen [::]:80;
+  server_name {{ inventory_hostname }};
+
+  location ^~ /.well-known {
+      location /.well-known/acme-challenge    { try_files $uri $uri/ =404; }
+      location /.well-known/pki-validation    { try_files $uri $uri/ =404; }
+  }
+
+  location / {
+    return 301 https://$host$request_uri;
+  }
+}
+
+server {
+  listen 443 ssl;
+
+	server_name {{ inventory_hostname }};
+  ssl_certificate     /etc/letsencrypt/live/{{ inventory_hostname }}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/{{ inventory_hostname }}/privkey.pem;
+
+  root /srv/www/{{ inventory_hostname }};
+  server_tokens off;
+  charset utf-8;
+
+  location / {
+    index index.php index.html;
+    try_files $uri $uri/ /index.php?$args;
+  }
+
+  error_page 404 /404.html;
+  error_page 500 502 503 504 /50x.html;
+
+  location = /50x.html {
+    root /usr/share/nginx/html;
+  }
+
+  # disallow .php files in uploads
+  location ~* /(?:uploads|files)/.*\.php$ {
+    deny all;
+  }
+
+  # add trailing slash to */wp-admin requests
+  rewrite /wp-admin$ $scheme://$host$uri/ permanent;
+
+  # prevent hidden files (beginning with a period) from being served
+  location ~ /\. {
+    access_log off;
+    log_not_found off;
+    deny all;
+  }
+
+  # pass uploaded files to wp-includes/ms-files.php
+  rewrite /files/$ /index.php last;
+
+  if ($uri !~ wp-content/plugins) {
+    rewrite /files/(.+)$ /wp-includes/ms-files.php?file=$1 last;
+  }
+
+  # rewrite multisite in a subdirectory '.../wp-.*' and '.../*.php'
+  if (!-e $request_filename) {
+    rewrite ^/[_0-9a-za-z-]+(/wp-.*) $1 last;
+    rewrite ^/[_0-9a-za-z-]+.*(/wp-admin/.*\.php)$ $1 last;
+    rewrite ^/[_0-9a-za-z-]+(/.*\.php)$ $1 last;
+  }
+
+  location ~ \.php$ {
+    try_files $uri =404;
+    include /etc/nginx/fastcgi_params;
+    fastcgi_read_timeout 3600s;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    fastcgi_split_path_info ^(.+\.php)(/.+)$;
+    fastcgi_index index.php;
+  }
+}

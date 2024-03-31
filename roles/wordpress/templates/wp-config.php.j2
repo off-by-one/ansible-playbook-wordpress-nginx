@@ -22,7 +22,7 @@ define('DB_NAME', '{{ wp_db_name }}');
 define('DB_USER', '{{ wp_db_user }}');
 
 /** MySQL database password */
-define('DB_PASSWORD', '{{ wp_db_password }}');
+define('DB_PASSWORD', "{{ wp_db_password }}");
 
 /** MySQL hostname */
 define('DB_HOST', 'localhost');
@@ -43,7 +43,14 @@ define('DB_COLLATE', '');
  * @since 2.6.0
  */
 
-{{ wp_salt.stdout }}
+define( 'AUTH_KEY',         '{{ lookup('password', '/dev/null chars=ascii_letters length=64') }}' );
+define( 'SECURE_AUTH_KEY',  '{{ lookup('password', '/dev/null chars=ascii_letters length=64') }}' );
+define( 'LOGGED_IN_KEY',    '{{ lookup('password', '/dev/null chars=ascii_letters length=64') }}' );
+define( 'NONCE_KEY',        '{{ lookup('password', '/dev/null chars=ascii_letters length=64') }}' );
+define( 'AUTH_SALT',        '{{ lookup('password', '/dev/null chars=ascii_letters length=64') }}' );
+define( 'SECURE_AUTH_SALT', '{{ lookup('password', '/dev/null chars=ascii_letters length=64') }}' );
+define( 'LOGGED_IN_SALT',   '{{ lookup('password', '/dev/null chars=ascii_letters length=64') }}' );
+define( 'NONCE_SALT',       '{{ lookup('password', '/dev/null chars=ascii_letters length=64') }}' );
 
 /**#@-*/
 
@@ -75,10 +82,10 @@ define('WPLANG', '');
 define('WP_DEBUG', false);
 
 /** Disable Automatic Updates Completely */
-define( 'AUTOMATIC_UPDATER_DISABLED', {{auto_up_disable}} );
+define( 'AUTOMATIC_UPDATER_DISABLED', false );
 
 /** Define AUTOMATIC Updates for Components. */
-define( 'WP_AUTO_UPDATE_CORE', {{core_update_level}} );
+define( 'WP_AUTO_UPDATE_CORE', true );
 
 /* That's all, stop editing! Happy blogging. */
 
