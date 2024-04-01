@@ -23,6 +23,13 @@
     enabled: yes
     daemon_reload: yes
 
+- name: "System | disable apache service"
+  ansible.builtin.systemd:
+    name: apache2
+    state: stopped
+    enabled: no
+    daemon_reload: yes
+
 - name: "Register | Check if WordPress directory exists in /srv/www"
   stat: path="/srv/www/{{ inventory_hostname }}"
   register: check_path
